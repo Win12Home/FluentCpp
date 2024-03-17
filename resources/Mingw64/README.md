@@ -1,0 +1,2 @@
+#Mingw64
+在这里填入Windows的Mingw64
