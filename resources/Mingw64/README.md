@@ -1,2 +1,2 @@
-#Mingw64
-在这里填入Windows的Mingw64
+<h1>README/h1>
+请把Mingw64放在这里
