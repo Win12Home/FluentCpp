@@ -8,11 +8,41 @@ from qfluentwidgets.components.material.acrylic_menu import *
 from CModule import *
 from darkdetect import *
 from CFileGenerator import *
+from random import randint
+from keyword import kwlist
 import sys
 
 app = QApplication([])
 setTheme(Theme.AUTO)
 
+
+class LoadingSplashScreen(SplashScreen):
+    def __init__(self, icon, parent):
+        super().__init__(icon, parent)
+        self.loadScreen = IndeterminateProgressRing(self)
+        self.loadScreen.setFixedSize(QSize(40, 40))
+        self._opacityUse = True
+
+    def resizeEvent(self, e):
+        iw, ih = self.iconSize().width(), self.iconSize().height()
+        self.titleBar.resize(self.width(), self.titleBar.height())
+        self.iconWidget.move(self.width() // 2 - iw // 2, self.height() // 2 - ih // 2 - self.iconWidget.height() // 2)
+        self.loadScreen.move(self.width() // 2 - self.loadScreen.width() // 2,
+                             self.height() // 2 - self.loadScreen.height() // 2 + self.iconWidget.height() // 2 + 60)
+
+    def setFinishUseOpacity(self, value):
+        self._opacityUse = value
+
+    def finish(self):
+        if self._opacityUse:
+            for i in range(100, 0, -8):
+                self._opacity = i / 100
+                self.op = QGraphicsOpacityEffect()
+                self.op.setOpacity(self._opacity)
+                self.setGraphicsEffect(self.op)
+                self.setAutoFillBackground(True)
+                self.parent().repaint()
+        super().finish()
 
 class AutoCompletePlainTextEdit(PlainTextEdit):
     def __init__(self, parent=None):
@@ -89,6 +119,24 @@ class AutoCompletePlainTextEdit(PlainTextEdit):
                 cursor.movePosition(QTextCursor.StartOfLine)
                 cursor.setPosition(cursor.position() - 1)
                 self.setTextCursor(cursor)
+            elif self._t[pos - 1:pos + 1] == "()":
+                cursor.movePosition(QTextCursor.EndOfLine)
+                cursor.deletePreviousChar()
+                self.setTextCursor(cursor)
+                self.insertPlainText("\n" + " " * indent + "    \n" + " " * indent + ")")
+                cursor = self.textCursor()
+                cursor.movePosition(QTextCursor.StartOfLine)
+                cursor.setPosition(cursor.position() - 1)
+                self.setTextCursor(cursor)
+            elif self._t[pos - 1:pos + 1] == "[]":
+                cursor.movePosition(QTextCursor.EndOfLine)
+                cursor.deletePreviousChar()
+                self.setTextCursor(cursor)
+                self.insertPlainText("\n" + " " * indent + "    \n" + " " * indent + "]")
+                cursor = self.textCursor()
+                cursor.movePosition(QTextCursor.StartOfLine)
+                cursor.setPosition(cursor.position() - 1)
+                self.setTextCursor(cursor)
             elif self._t[pos - 1] == ":":
                 self.insertPlainText("\n" + " " * indent + "    ")
             else:
@@ -97,6 +145,71 @@ class AutoCompletePlainTextEdit(PlainTextEdit):
         else:
             super().keyPressEvent(event)
 
+class NullSyntaxHighlighter(QSyntaxHighlighter):
+    def __init__(self,parent:QTextDocument|QTextDocument=None):
+        super(NullSyntaxHighlighter, self).__init__(parent)
+
+class PythonSyntaxHighlighter(QSyntaxHighlighter):
+    def __init__(self,parent:QTextDocument|QTextDocument=None):
+        super().__init__(parent)
+        self.highlightingRules=[]
+        if isDarkTheme():
+            self.highlightGreenColor = Qt.green
+            self.highlightBlueColor = Qt.darkBlue
+            self.highlightCyanColor = Qt.darkCyan
+        else:
+            self.highlightGreenColor = Qt.darkGreen
+            self.highlightBlueColor = Qt.blue
+            self.highlightCyanColor = Qt.cyan
+        keywordFormat=QTextCharFormat()
+        keywordFormat.setForeground(self.highlightBlueColor)
+        for i in kwlist:
+            self.highlightingRules.append((QRegExp("\\b"+i+"\\b"),keywordFormat))
+        for i in ["int","str","float","list","set","dict"]:
+            self.highlightingRules.append((QRegExp("\\b" + i + "\\b"), keywordFormat))
+        stringFormat=QTextCharFormat()
+        stringFormat.setForeground(self.highlightGreenColor)
+        self.highlightingRules.append((QRegExp("\"[^\"]*\""),stringFormat))
+        self.highlightingRules.append((QRegExp("'[^']*'"),stringFormat))
+        anotherKeywordFormat=QTextCharFormat()
+        anotherKeywordFormat.setForeground(self.highlightCyanColor)
+        for i in ["self"]:
+            self.highlightingRules.append((QRegExp("\\b"+i+"\\b"),anotherKeywordFormat))
+
+    def highlightBlock(self, text):
+        for pattern, format in self.highlightingRules:
+            expression = QRegExp(pattern)
+            index = expression.indexIn(text)
+            while index >= 0:
+                length = expression.matchedLength()
+                self.setFormat(index, length, format)
+                index = expression.indexIn(text, index + length)
+
+class JsonSyntaxHighlighter(QSyntaxHighlighter):
+    def __init__(self,parent:QTextDocument|QTextDocument=None):
+        super(JsonSyntaxHighlighter,self).__init__(parent)
+        self.highlightingRules=[]
+        if isDarkTheme():
+            self.highlightGreenColor = Qt.green
+            self.highlightBlueColor = Qt.darkBlue
+        else:
+            self.highlightGreenColor = Qt.darkGreen
+            self.highlightBlueColor = Qt.blue
+        braceFormat = QTextCharFormat()
+        braceFormat.setForeground(self.highlightBlueColor)
+        self.highlightingRules.append((QRegExp(r"[{}[\]]"),braceFormat))
+        stringFormat=QTextCharFormat()
+        stringFormat.setForeground(self.highlightGreenColor)
+        self.highlightingRules.append((QRegExp(r'"[^"\\]*(\\.[^"\\]*)*"'),stringFormat))
+
+    def highlightBlock(self, text):
+        for pattern, format in self.highlightingRules:
+            expression = QRegExp(pattern)
+            index = expression.indexIn(text)
+            while index >= 0:
+                length = expression.matchedLength()
+                self.setFormat(index, length, format)
+                index = expression.indexIn(text, index + length)
 
 class CppSyntaxHighlighter(QSyntaxHighlighter):
     def __init__(self, parent: QTextDocument | QTextDocument = None, useclanguage: bool = False):
@@ -108,7 +221,6 @@ class CppSyntaxHighlighter(QSyntaxHighlighter):
         else:
             self.highlightGreenColor = Qt.darkGreen
             self.highlightBlueColor = Qt.blue
-            self.highlightCyanColor = Qt.darkCyan
         keywordFormat = QTextCharFormat()
         keywordFormat.setForeground(self.highlightBlueColor)
         keywords = [
@@ -196,7 +308,6 @@ class FluentCApp(FluentWindow):
         self.filename = None
         self.setWindowTitle("FluentC++ {}".format(version))
         self.setWindowIcon(QIcon("resources/icon.png"))
-        self.resize(800, 600)
         self.editor = QWidget()
         self.editor.setObjectName("FluentCApp.Editor")
         self.editorText = AutoCompletePlainTextEdit(self.editor)
@@ -226,20 +337,20 @@ class FluentCApp(FluentWindow):
         self.editmenu.addActions([self.editmenu_a1, self.editmenu_a2, self.editmenu_a3])
         self.editmenu_btn.setGeometry(100, 0, 100, 30)
         self.editmenu_btn.setMenu(self.editmenu)
-        self.runmenu_btn=TransparentDropDownPushButton("运行",self.editor)
-        self.runmenu=RoundMenu()
-        self.runmenu_a1=QAction(QIcon(FluentIcon.COMMAND_PROMPT.path()),"运行")
+        self.runmenu_btn = TransparentDropDownPushButton("运行", self.editor)
+        self.runmenu = RoundMenu()
+        self.runmenu_a1 = QAction(QIcon(FluentIcon.COMMAND_PROMPT.path()), "运行")
         self.runmenu_a1.triggered.connect(self.run)
-        self.runmenu_a2=QAction(QIcon(FluentIcon.COPY.path()),"补齐DLL（在DLL错误的情况下）")
+        self.runmenu_a2 = QAction(QIcon(FluentIcon.COPY.path()), "补齐DLL（在DLL错误的情况下）")
         self.runmenu_a2.triggered.connect(self.dllCopy)
-        self.runmenu.addActions([self.runmenu_a1,self.runmenu_a2])
-        self.runmenu_btn.setGeometry(200,0,100,30)
+        self.runmenu.addActions([self.runmenu_a1, self.runmenu_a2])
+        self.runmenu_btn.setGeometry(200, 0, 100, 30)
         self.runmenu_btn.setMenu(self.runmenu)
         self.editorText.setFont(QFont(sets.get("family"), sets.get("fontsize")))
         self.usedsyntax = CppSyntaxHighlighter(self.editorText.document())
         self.logText = TextEdit(self.editor)
         self.logText.setReadOnly(True)
-        self.errorView=TreeWidget(self.editor)
+        self.errorView = TreeWidget(self.editor)
         self.errorView.setHeaderLabels(["错误"])
         self.errorView.setContextMenuPolicy(Qt.CustomContextMenu)
         self.errorView.customContextMenuRequested.connect(self.showMenu)
@@ -256,17 +367,19 @@ class FluentCApp(FluentWindow):
         self.card_3a = SwitchSettingCard(FluentIcon.CANCEL_MEDIUM, "退出时未保存提醒", "如果未保存文件，就会有这个提醒")
         self.card_3a.setChecked(not sets.get("discordsaveinfo"))
         self.card_3a.checkedChanged.connect(lambda: sets.write("discordsaveinfo", not self.card_3a.isChecked()))
-        self.card_4a=PrimaryPushSettingCard("选择",FluentIcon.COMMAND_PROMPT,"C++编译器","设置C++编译器(g++)",self)
+        self.card_4a = PrimaryPushSettingCard("选择", FluentIcon.COMMAND_PROMPT, "C++编译器", "设置C++编译器(g++)",
+                                              self)
         self.card_4a.button.clicked.connect(self.setCppCompiler)
-        self.card_4a.text=LineEdit(self.card_4a)
+        self.card_4a.text = LineEdit(self.card_4a)
         self.card_4a.text.setText(sets.get("c++compiler"))
         self.card_4a.text.setReadOnly(True)
-        self.card_5a = PrimaryPushSettingCard("选择", FluentIcon.COMMAND_PROMPT, "C语言编译器", "设置C语言编译器(gcc)",self)
+        self.card_5a = PrimaryPushSettingCard("选择", FluentIcon.COMMAND_PROMPT, "C语言编译器", "设置C语言编译器(gcc)",
+                                              self)
         self.card_5a.button.clicked.connect(self.setC_Compiler)
         self.card_5a.text = LineEdit(self.card_5a)
         self.card_5a.text.setText(sets.get("c_compiler"))
         self.card_5a.text.setReadOnly(True)
-        self.setting1.addSettingCards([self.card_1a, self.card_2a, self.card_3a,self.card_4a,self.card_5a])
+        self.setting1.addSettingCards([self.card_1a, self.card_2a, self.card_3a, self.card_4a, self.card_5a])
         self.setting2 = QWidget()
         self.cppcompile = SubtitleLabel(self.setting2)
         self.cppcompile.setText("额外编译选项（C++）（换行为下一个）")
@@ -282,48 +395,70 @@ class FluentCApp(FluentWindow):
         self.ccompiletext.setPlainText(sets.get("cextracompilecmd"))
         self.ccompiletext.textChanged.connect(
             lambda: sets.write("cextracompilecmd", self.ccompiletext.toPlainText()))
+        self.about=QWidget()
+        self.aboutthis=LargeTitleLabel(self.about)
+        self.aboutthis.setText("关于Fluent C++")
+        self.aboutthis.setGeometry(0,0,700,150)
+        self.aboutavatar=AvatarWidget(self.about)
+        self.aboutavatar.setImage(QPixmap("resources/author.bmp"))
+        self.aboutavatar.setRadius(64)
+        self.aboutavatar.move(0,150)
+        self.aboutauthorname=TitleLabel(self.about)
+        self.aboutauthorname.setGeometry(130,150,700,self.aboutavatar.height())
+        self.aboutauthorname.setText("作者：是真的Win12Home")
+        self.abouttext=TextEdit(self.about)
+        self.abouttext.setHtml(
+            f"Fluent C++ {version}<br>By:是真的Win12Home<br>许可协议：<a target=\"_blank\" href=\"https://opensource.org/license/MIT\">MIT License</a><br>此软件永久在Github开放源码！<br>GitHub网址：<a href=\"https://github.com/Win12Home/FluentC\" target=\"_blank\">https://github.com/Win12Home/FluentC</a>"
+        )
         self.settingspivot = Pivot(self.settings)
         self.settingswidget.addWidget(self.setting1)
         self.settingswidget.addWidget(self.setting2)
+        self.settingswidget.addWidget(self.about)
         self.settingspivot.addItem("FluentCApp.SettingDialog.Set1", "常用设置",
                                    lambda: self.settingswidget.setCurrentWidget(self.setting1))
         self.settingspivot.addItem("FluentCApp.SettingDialog.Set2", "编译设置",
                                    lambda: self.settingswidget.setCurrentWidget(self.setting2))
+        self.settingspivot.addItem("FluentCApp.SettingDialog.About", "关于",
+                                   lambda: self.settingswidget.setCurrentWidget(self.about))
         self.settingspivot.setCurrentItem("FluentCApp.SettingDialog.Set1")
         self.addSubInterface(self.editor, FluentIcon.EDIT.path(), "编辑", parent=self, selected=True)
         self.addSubInterface(self.settings, FluentIcon.SETTING.path(), "设置", position=NavigationItemPosition.BOTTOM,
                              parent=self)
         self.initializeFont()
-        self.splashscreen=SplashScreen(self.windowIcon(),self)
-        self.splashscreen.setIconSize(QSize(102,102))
+        self.resize(1280,768)
+        self.showMaximized()
+        self.splashscreen = LoadingSplashScreen(self.windowIcon(), self)
+        self.splashscreen.setIconSize(QSize(142,142))
         self.splashscreen.setCursor(Qt.BusyCursor)
         self.show()
         self.createSubInterface()
         self.splashscreen.finish()
 
     def createSubInterface(self):
-        self.loop=QEventLoop(self)
-        QTimer.singleShot(2500,self.loop.quit)
+        self.loop = QEventLoop(self)
+        self.a = randint(2500, 4500)
+        QTimer.singleShot(self.a, self.loop.quit)
+        print(self.a)
         self.loop.exec()
 
     def setCppCompiler(self):
-        self.browse,_=QFileDialog.getOpenFileName(self,"选择C++编译器",filter="编译器 (g++.exe gcc.exe)")
+        self.browse, _ = QFileDialog.getOpenFileName(self, "选择C++编译器", filter="编译器 (g++.exe gcc.exe)")
         if self.browse:
-            sets.write("c++compiler",str(self.browse).replace("/","\\"))
-            self.card_4a.text.setText(str(self.browse).replace("/","\\"))
+            sets.write("c++compiler", str(self.browse).replace("/", "\\"))
+            self.card_4a.text.setText(str(self.browse).replace("/", "\\"))
 
     def setC_Compiler(self):
-        self.browse,_=QFileDialog.getOpenFileName(self,"选择C语言编译器",filter="编译器 (gcc.exe)")
+        self.browse, _ = QFileDialog.getOpenFileName(self, "选择C语言编译器", filter="编译器 (gcc.exe)")
         if self.browse:
-            sets.write("c_compiler",str(self.browse).replace("/","\\"))
-            self.card_5a.text.setText(str(self.browse).replace("/","\\"))
+            sets.write("c_compiler", str(self.browse).replace("/", "\\"))
+            self.card_5a.text.setText(str(self.browse).replace("/", "\\"))
 
-    def showMenu(self,pos):
-        self._treeitem=self.errorView.itemAt(pos)
+    def showMenu(self, pos):
+        self._treeitem = self.errorView.itemAt(pos)
         if self._treeitem:
-            self.errorViewMenu=RoundMenu(self)
-            self.errorViewMenu.action1=QAction(QIcon(FluentIcon.COPY.path()),"复制消息",self)
-            self.errorViewMenu.action1.triggered.connect(lambda:copy(self._treeitem.text(0)))
+            self.errorViewMenu = RoundMenu(self)
+            self.errorViewMenu.action1 = QAction(QIcon(FluentIcon.COPY.path()), "复制消息", self)
+            self.errorViewMenu.action1.triggered.connect(lambda: copy(self._treeitem.text(0)))
             self.errorViewMenu.addAction(self.errorViewMenu.action1)
             self.errorViewMenu.exec_(self.errorView.mapToGlobal(pos))
 
@@ -336,12 +471,12 @@ class FluentCApp(FluentWindow):
             self.thread=check_cpp_language_error(self.editorText.toPlainText(),parent=self)
         self.thread.start()
         self.thread.returnCheck.connect(self.check)"""
-        self._view=QTreeWidgetItem(self.errorView)
-        self._view.setText(0,"这块没做完")
+        self._view = QTreeWidgetItem(self.errorView)
+        self._view.setText(0, "这块没做完")
 
-    def check(self,items):
+    def check(self, items):
         if self.filename:
-            if get_file_extension(self.filename) == "c":
+            if get_file_extension(self.filename).lower() == "c":
                 for self.i in items:
                     self._view = QTreeWidgetItem(self.errorView)
                     self._view.setText(0, str(self.i))
@@ -351,8 +486,8 @@ class FluentCApp(FluentWindow):
                     self._view.setText(0, str(self.i))
         else:
             for self.i in items:
-                self._view=QTreeWidgetItem(self.errorView)
-                self._view.setText(0,str(self.i))
+                self._view = QTreeWidgetItem(self.errorView)
+                self._view.setText(0, str(self.i))
 
     def initializeFont(self):
         self.card_1a.combobox.clear()
@@ -371,14 +506,14 @@ class FluentCApp(FluentWindow):
         self.editorText.setFont(QFont(sets.get("family"), sets.get("fontsize")))
 
     def dllCopy(self):
-        self.msg=MessageBox("提醒","运行补齐程序可能会报毒，需要继续吗？",self)
+        self.msg = MessageBox("提醒", "运行补齐程序可能会报毒，需要继续吗？", self)
         self.msg.yesButton.setText("继续")
         self.msg.cancelButton.setText("算了")
         if self.msg.exec_():
             self.logText.setText("正在补齐...")
-            self.threads=DLLCopy(self)
+            self.threads = DLLCopy(self)
             self.threads.start()
-            self.threads.log.connect(lambda item:self.logText.setText(self.logText.toPlainText()+"\n"+item))
+            self.threads.log.connect(lambda item: self.logText.setText(self.logText.toPlainText() + "\n" + item))
 
     def close(self):
         if not self.filename and not self.editorText.toPlainText() == "" and not sets.get("discordsaveinfo"):
@@ -403,48 +538,72 @@ class FluentCApp(FluentWindow):
                 f.write(self.editorText.toPlainText())
 
     def run(self):
-        if not self.filename:
-            self.browse, _ = QFileDialog.getSaveFileName(self, "另存为",
-                                                         filter="C++文件 (*.cpp *.h *.hpp);;C语言文件 (*.c);;源文件 (*.cpp *.c);;头文件 (*.h *.hpp);;支持文件 (*.cpp *.c *.h *.hpp)")
-            if self.browse:
-                self.filename = str(self.browse).replace("/", "\\")
-                if get_file_extension(self.browse) in ["cpp", "h", "hpp"]:
-                    self.usedsyntax = CppSyntaxHighlighter(self.editorText.document())
+        if self.filename and get_file_extension(self.filename).lower() == "c":
+            self.compile = "c_compiler"
+        else:
+            self.compile = "c++compiler"
+        if Path(sets.get(self.compile)).exists() or sets.get(self.compile) == "":
+            if not self.filename:
+                self.browse, _ = QFileDialog.getSaveFileName(self, "另存为",
+                                                             filter="C++文件 (*.cpp *.h *.hpp);;C语言文件 (*.c);;源文件 (*.cpp *.c);;头文件 (*.h *.hpp);;支持C/C++文件 (*.cpp *.c *.h *.hpp);;JSON文件 (*.json);;Python文件 (*.py *.pyi);;所有文件 (*.*)")
+                if self.browse:
+                    self.filename = str(self.browse).replace("/", "\\")
+                    if get_file_extension(self.browse).lower() in ["cpp", "h", "hpp"]:
+                        self.usedsyntax = CppSyntaxHighlighter(self.editorText.document())
+                    elif get_file_extension(self.browse).lower() == "c":
+                        self.usedsyntax = CppSyntaxHighlighter(self.editorText.document(), True)
+                    elif get_file_extension(self.browse).lower() == "json":
+                        self.usedsyntax=JsonSyntaxHighlighter(self.editorText.document())
+                    elif get_file_extension(self.browse).lower() in ["py","pyi"]:
+                        self.usedsyntax=PythonSyntaxHighlighter(self.editorText.document())
+                    else:
+                        self.usedsyntax=NullSyntaxHighlighter(self.editorText.document())
+                    self.changeTitle()
+                    self.autoSave()
+            if self.filename:
+                if get_file_extension(self.filename).lower() in ["c","cpp","h","hpp"]:
+                    self.logText.setText("编译开始")
+                    if get_file_extension(self.browse).lower() == "c":
+                        self.mode = "cextracompilecmd"
+                        self.compile = "c_compiler"
+                    else:
+                        self.mode = "cppextracompilecmd"
+                        self.compile = "c++compiler"
+                    self.threads = GenerateFile(self.filename, sets.get(self.compile), get_file_path(self.filename) + ".exe",
+                                                sets.get(self.mode).split("\n"))
+                    print(self.threads.getGenerateCode())
+                    self.threads.start()
+                    self.threads.gcclog.connect(self.logConnect)
                 else:
-                    self.usedsyntax = CppSyntaxHighlighter(self.editorText.document(), True)
-                self.changeTitle()
-                self.autoSave()
-        if self.filename:
-            self.logText.setText("编译开始")
-            if get_file_extension(self.browse) == "c":
-                self.mode = "cextracompilecmd"
-                self.compile="c_compiler"
-            else:
-                self.mode="cppextracompilecmd"
-                self.compile="c++compiler"
-            self.threads=GenerateFile(self.filename,sets.get(self.compile),get_file_path(self.filename)+".exe",sets.get(self.mode).split("\n"))
-            print(self.threads.getGenerateCode())
-            self.threads.start()
-            self.threads.gcclog.connect(self.logConnect)
+                    self.msg=MessageBox("错误","此文件不可运行！",self)
+                    self.msg.yesButton.setText("确定")
+                    self.msg.buttonLayout.insertStretch(1)
+                    self.msg.exec()
+        else:
+            self.msg=MessageBox("错误","编译器未指定或者不存在",self)
+            self.msg.yesButton.setText("确定")
+            self.msg.cancelButton.hide()
+            self.msg.buttonLayout.insertStretch(1)
+            self.msg.exec()
 
-    def logConnect(self,item:str):
-        self.logText.setText(self.logText.toPlainText()+"\n"+item)
+    def logConnect(self, item: str):
+        self.logText.setText(self.logText.toPlainText() + "\n" + item)
         if item == "编译可能错误！":
-            self.msg=MessageBox("编译错误","编译可能错误，需要启动上一次编译的程序吗？",self)
+            self.msg = MessageBox("编译错误", "编译可能错误，需要启动上一次编译的程序吗？", self)
             self.msg.yesButton.setText("继续")
             self.msg.cancelButton.setText("取消")
             if self.msg.exec_():
-                if not Path(get_file_path(self.filename)+".exe").exists():
-                    self.threads.breakit=True
+                if not Path(get_file_path(self.filename) + ".exe").exists():
+                    self.threads.breakit = True
                     self.threads.exit(-1)
-                    self._name=get_file_path(self.filename)+".exe"
-                    self.msg=MessageBox("错误",f"找不到{self._name}，编译未完成！",self)
+                    self._name = get_file_path(self.filename) + ".exe"
+                    self.msg = MessageBox("错误", f"找不到{self._name}，编译未完成！", self)
                     self.msg.yesButton.setText("确定")
                     self.msg.cancelButton.hide()
                     self.msg.buttonLayout.insertStretch(1)
                     self.msg.exec_()
                 else:
-                    self.threads.success=True
+                    self.threads.success = True
             else:
                 self.threads.breakit = True
 
@@ -456,26 +615,38 @@ class FluentCApp(FluentWindow):
 
     def anotherSave(self):
         self.browse, _ = QFileDialog.getSaveFileName(self, "另存为",
-                                                     filter="C++文件 (*.cpp *.h *.hpp);;C语言文件 (*.c);;源文件 (*.cpp *.c);;头文件 (*.h *.hpp);;支持文件 (*.cpp *.c *.h *.hpp)")
+                                                     filter="C++文件 (*.cpp *.h *.hpp);;C语言文件 (*.c);;源文件 (*.cpp *.c);;头文件 (*.h *.hpp);;支持C/C++文件 (*.cpp *.c *.h *.hpp);;JSON文件 (*.json);;Python文件 (*.py *.pyi);;所有文件 (*.*)")
         if self.browse:
             self.filename = str(self.browse).replace("/", "\\")
-            if get_file_extension(self.browse) in ["cpp", "h", "hpp"]:
+            if get_file_extension(self.browse).lower() in ["cpp", "h", "hpp"]:
                 self.usedsyntax = CppSyntaxHighlighter(self.editorText.document())
-            else:
+            elif get_file_extension(self.browse).lower() == "c":
                 self.usedsyntax = CppSyntaxHighlighter(self.editorText.document(), True)
+            elif get_file_extension(self.browse).lower() == "json":
+                self.usedsyntax=JsonSyntaxHighlighter(self.editorText.document())
+            elif get_file_extension(self.browse).lower() in ["py", "pyi"]:
+                self.usedsyntax = PythonSyntaxHighlighter(self.editorText.document())
+            else:
+                self.usedsyntax=NullSyntaxHighlighter(self.editorText.document())
             self.changeTitle()
             self.autoSave()
 
     def open(self):
         self.browse, _ = QFileDialog.getOpenFileName(self, "打开",
-                                                     filter="C++文件 (*.cpp *.h *.hpp);;C语言文件 (*.c);;源文件 (*.cpp *.c);;头文件 (*.h *.hpp);;支持文件 (*.cpp *.c *.h *.hpp)")
+                                                     filter="C++文件 (*.cpp *.h *.hpp);;C语言文件 (*.c);;源文件 (*.cpp *.c);;头文件 (*.h *.hpp);;支持C/C++文件 (*.cpp *.c *.h *.hpp);;JSON文件 (*.json);;Python文件 (*.py *.pyi);;所有文件 (*.*)")
         if self.browse:
             self.filename = str(self.browse).replace("/", "\\")
             self.changeTitle()
-            if get_file_extension(self.browse) in ["cpp", "h", "hpp"]:
+            if get_file_extension(self.browse).lower() in ["cpp", "h", "hpp"]:
                 self.usedsyntax = CppSyntaxHighlighter(self.editorText.document())
-            else:
+            elif get_file_extension(self.browse).lower() == "c":
                 self.usedsyntax = CppSyntaxHighlighter(self.editorText.document(), True)
+            elif get_file_extension(self.browse).lower() == "json":
+                self.usedsyntax=JsonSyntaxHighlighter(self.editorText.document())
+            elif get_file_extension(self.browse).lower() in ["py", "pyi"]:
+                self.usedsyntax = PythonSyntaxHighlighter(self.editorText.document())
+            else:
+                self.usedsyntax=NullSyntaxHighlighter(self.editorText.document())
             with open(self.browse, "r", encoding="utf-8") as f:
                 self.editorText.setPlainText(f.read())
 
@@ -495,17 +666,19 @@ class FluentCApp(FluentWindow):
         self.editorText.setGeometry(QRect(QPoint(0, 30), QPoint(self.width() - 50 - 300, self.height() // 2 + 130)))
         self.logText.setGeometry(
             QRect(QPoint(0, self.height() // 2 + 130), QPoint(self.width() - 50 - 300, self.height() - 50)))
-        self.errorView.setGeometry(QRect(QPoint(self.width() - 50 - 300,30),QPoint(self.width()-50,self.height()-50)))
+        self.errorView.setGeometry(
+            QRect(QPoint(self.width() - 50 - 300, 30), QPoint(self.width() - 50, self.height() - 50)))
         self.settingspivot.setGeometry(QRect(QPoint(0, 0), QPoint(self.width() - 50, 50)))
         self.settingswidget.setGeometry(QRect(QPoint(0, 50), QPoint(self.width() - 50, self.height() - 50)))
         self.card_1a.combobox.setGeometry(QRect(QPoint(300, 20), QPoint(self.width() - 100, 50)))
         self.card_2a.spinbox.setGeometry(QRect(QPoint(300, 20), QPoint(self.width() - 100, 50)))
-        self.card_4a.text.setGeometry(QRect(QPoint(300,20),QPoint(self.width()-150,50)))
-        self.card_5a.text.setGeometry(QRect(QPoint(300,20),QPoint(self.width()-150,50)))
+        self.card_4a.text.setGeometry(QRect(QPoint(300, 20), QPoint(self.width() - 150, 50)))
+        self.card_5a.text.setGeometry(QRect(QPoint(300, 20), QPoint(self.width() - 150, 50)))
         self.cppcompile.setGeometry(0, 0, 700, 50)
         self.cppcompiletext.setGeometry(QRect(QPoint(0, 50), QPoint(self.width() - 50, (self.height() - 100) // 2)))
         self.ccompile.setGeometry(0, (self.height() - 100) // 2, 700, 50)
         self.ccompiletext.setGeometry(0, (self.height() - 100) // 2 + 50, self.width() - 50, self.height() - 50)
+        self.abouttext.setGeometry(QRect(QPoint(0,self.aboutavatar.y()+self.aboutavatar.height()),QPoint(self.width()-50,self.height()-50)))
 
 
 if __name__ == "__main__":

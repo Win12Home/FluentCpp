@@ -50,7 +50,7 @@ original={
     "fontsize":16,
     "family":"Consolas",
     "discordsaveinfo":False,
-    "version":"1.0-pre1"
+    "version":"1.0-pre2"
 }
 
 class sets:
