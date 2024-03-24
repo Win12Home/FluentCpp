@@ -7,7 +7,7 @@ from typing import Union
 from shutil import copy2
 from pyperclip import *
 
-__all__=["version","get_file_extension","get_directory_path","sets","get_font_list","check_cpp_language_error","copy","get_file_path","DLLCopy"]
+__all__=["version","get_file_extension","get_directory_path","sets","get_font_list","check_cpp_language_error","copy","get_file_path","DLLCopy","find_substring_indices","dumps"]
 
 
 
@@ -77,6 +77,15 @@ class sets:
     def __repr__(self):
         return None
 
+def fl(string,substring):
+    l=string.splitlines()
+    l2=[]
+    for i in l:
+        if i.find(substring) != -1:
+            l2.append(i)
+    return l2
+find_substring_indices=fl
+
 class check_cpp_language_error(QThread):
     returnCheck=pyqtSignal(list)
     def __init__(self,code,isClanguage:bool=False,parent=None):
@@ -117,4 +126,4 @@ if Path("config.fconf").exists():
         settings=loads(f.read())
 else:
     sets.refresh()
-version=sets.get("version")
+version="1.0 Release Candidate 1"

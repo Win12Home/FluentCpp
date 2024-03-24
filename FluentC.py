@@ -1,3 +1,4 @@
+from __future__ import division  #我也不知道为什么要引入，这就是第二个注释（惊人的两个注释）#
 from typing import Union
 from PyQt5.QtWidgets import *
 from PyQt5.QtCore import *
@@ -10,17 +11,65 @@ from darkdetect import *
 from CFileGenerator import *
 from random import randint
 from keyword import kwlist
+from Examples import *
+import pyexpat
 import sys
 
 app = QApplication([])
 setTheme(Theme.AUTO)
 
+class DocumentsBox(MessageBoxBase):
+    def __init__(self,parent):
+        super().__init__(parent)
+        self.title=SubtitleLabel("选择示例")
+        self.content=BodyLabel()
+        self.content.setText("在这里选择一个示例")
+        self.listbox=TreeWidget()
+        self.listbox.setHeaderLabels(["名称","难度(1-10)"])
+        self.listbox.setMinimumHeight(350)
+        self.viewLayout.addWidget(self.title)
+        self.viewLayout.addWidget(self.content)
+        self.viewLayout.addWidget(self.listbox)
+        self.widget.setFixedWidth(400)
+        self.setupListBox()
+        self.yesButton.setText("选定")
+        self.cancelButton.setText("取消")
+
+    def setupListBox(self):
+        self.l1=QTreeWidgetItem(self.listbox)
+        self.l1.setText(0,"Hello World!")
+        self.l1.setText(1,"1")
+        self.l2=QTreeWidgetItem(self.listbox)
+        self.l2.setText(0,"搜索数组项")
+        self.l2.setText(1,"2")
+        self.l3=QTreeWidgetItem(self.listbox)
+        self.l3.setText(0,"二分查找(vector)")
+        self.l3.setText(1,"3")
+        self.l4=QTreeWidgetItem(self.listbox)
+        self.l4.setText(0,"彩色输出")
+        self.l4.setText(1,"3")
+        self.listbox.setCurrentItem(self.l1)
+        self.listbox.setColumnWidth(0,300)
+        self.listbox.setColumnWidth(1,50)
+
+    def getListBoxSelectedItem(self):
+        self.item=self.listbox.currentItem()
+        if self.item == self.l1:
+            return helloworld
+        elif self.item == self.l2:
+            return search
+        elif self.item == self.l3:
+            return binarysearch
+        elif self.item == self.l4:
+            return rainbow
 
 class LoadingSplashScreen(SplashScreen):
     def __init__(self, icon, parent):
         super().__init__(icon, parent)
         self.loadScreen = IndeterminateProgressRing(self)
         self.loadScreen.setFixedSize(QSize(40, 40))
+        self.loadScreen.setToolTip("哇，你发现我了！")
+        self.loadScreen.installEventFilter(ToolTipFilter(self.loadScreen,200))
         self._opacityUse = True
 
     def resizeEvent(self, e):
@@ -45,105 +94,98 @@ class LoadingSplashScreen(SplashScreen):
         super().finish()
 
 class AutoCompletePlainTextEdit(PlainTextEdit):
+    autoCompleteChanged=pyqtSignal()
     def __init__(self, parent=None):
         super().__init__(parent)
+        self._usingAutomaticComplete=True
+
+    def setUsingAutoComplete(self,a0:bool):
+        self.autoCompleteChanged.emit()
+        self._usingAutomaticComplete=a0
 
     def keyPressEvent(self, event: QKeyEvent):
-        if event.key() == Qt.Key_BraceLeft:
-            self.insertPlainText("{}")
-            cursor = self.textCursor()
-            cursor.movePosition(QTextCursor.Left)
-            self.setTextCursor(cursor)
-        elif event.key() == Qt.Key_BracketLeft:
-            self.insertPlainText("[]")
-            cursor = self.textCursor()
-            cursor.movePosition(QTextCursor.Left)
-            self.setTextCursor(cursor)
-        elif event.key() == Qt.Key_ParenLeft:
-            self.insertPlainText("()")
-            cursor = self.textCursor()
-            cursor.movePosition(QTextCursor.Left)
-            self.setTextCursor(cursor)
-        elif event.key() == Qt.Key_Apostrophe:
-            self.insertPlainText("''")
-            cursor = self.textCursor()
-            cursor.movePosition(QTextCursor.Left)
-            self.setTextCursor(cursor)
-        elif event.key() == Qt.Key_Tab:
-            self.insertPlainText("    ")
-        elif event.text() == "\"":
-            self.insertPlainText("\"\"")
-            cursor = self.textCursor()
-            cursor.movePosition(QTextCursor.Left)
-            self.setTextCursor(cursor)
-        elif event.key() == Qt.Key_Backspace:
-            cursor = self.textCursor()
-            self._t = ""
-            for i in self.toPlainText():
-                self._t += i
-            if self._t[cursor.position() - 1:cursor.position() + 1] in ["[]", "{}", "()", "<>", "\"\"", "''"]:
-                cursor.setPosition(cursor.position())
-                cursor.deletePreviousChar()
-                cursor.setPosition(cursor.position() + 1)
-                cursor.deletePreviousChar()
-                self.setTextCursor(cursor)
-            elif self._t[cursor.position() - 4:cursor.position()] == "    ":
-                for __count in range(4): cursor.deletePreviousChar()
+        try:
+            if self._usingAutomaticComplete:
+                if event.key() == Qt.Key_BraceLeft:
+                    self.insertPlainText("{}")
+                    cursor = self.textCursor()
+                    cursor.movePosition(QTextCursor.Left)
+                    self.setTextCursor(cursor)
+                elif event.key() == Qt.Key_BracketLeft:
+                    self.insertPlainText("[]")
+                    cursor = self.textCursor()
+                    cursor.movePosition(QTextCursor.Left)
+                    self.setTextCursor(cursor)
+                elif event.key() == Qt.Key_ParenLeft:
+                    self.insertPlainText("()")
+                    cursor = self.textCursor()
+                    cursor.movePosition(QTextCursor.Left)
+                    self.setTextCursor(cursor)
+                elif event.key() == Qt.Key_Apostrophe:
+                    self.insertPlainText("''")
+                    cursor = self.textCursor()
+                    cursor.movePosition(QTextCursor.Left)
+                    self.setTextCursor(cursor)
+                elif event.key() == Qt.Key_Tab:
+                    self.insertPlainText("    ")
+                elif event.text() == "\"":
+                    self.insertPlainText("\"\"")
+                    cursor = self.textCursor()
+                    cursor.movePosition(QTextCursor.Left)
+                    self.setTextCursor(cursor)
+                elif event.key() == Qt.Key_Backspace:
+                    cursor = self.textCursor()
+                    self._t = ""
+                    for i in self.toPlainText():
+                        self._t += i
+                    if self._t[cursor.position() - 1:cursor.position() + 1] in ["[]", "{}", "()", "<>", "\"\"", "''"]:
+                        cursor.setPosition(cursor.position())
+                        cursor.deletePreviousChar()
+                        cursor.setPosition(cursor.position() + 1)
+                        cursor.deletePreviousChar()
+                        self.setTextCursor(cursor)
+                    elif self._t[cursor.position() - 4:cursor.position()] == "    ":
+                        for __count in range(4): cursor.deletePreviousChar()
+                    else:
+                        super().keyPressEvent(event)
+                elif event.key() == Qt.Key_Return:
+                    cursor = self.textCursor()
+                    pos = cursor.position()
+                    cursor.movePosition(QTextCursor.StartOfLine)
+                    line = cursor.block().text()
+                    self._t = ""
+                    for i in self.toPlainText():
+                        self._t += i
+                    indent = len(line) - len(line.lstrip())
+                    if self._t[pos - 1:pos + 1] in ["{}","()","[]"]:
+                        self.insertPlainText("\n" + " " * indent + "    " + "\n" + " " * indent)
+                        cursor = self.textCursor()
+                        cursor.movePosition(QTextCursor.StartOfLine)
+                        cursor.setPosition(cursor.position()-1)
+                        self.setTextCursor(cursor)
+                    elif self._t[pos - 1] == ":":
+                        self.insertPlainText("\n" + " " * indent + "    ")
+                    else:
+                        super().keyPressEvent(event)
+                        self.insertPlainText(" " * indent)
+                else:
+                    super().keyPressEvent(event)
             else:
-                super().keyPressEvent(event)
-        elif event.key() == Qt.Key_Return:
-            cursor = self.textCursor()
-            pos = cursor.position()
-            cursor.movePosition(QTextCursor.StartOfLine)
-            line = cursor.block().text()
-            self._t = ""
-            for i in self.toPlainText():
-                self._t += i
-            indent = len(line) - len(line.lstrip())
-            if self._t[pos - 1:pos + 2] == "{};":
-                cursor.movePosition(QTextCursor.EndOfLine)
-                cursor.deletePreviousChar()
-                cursor.deletePreviousChar()
-                self.setTextCursor(cursor)
-                self.insertPlainText("\n" + " " * indent + "    \n" + " " * indent + "};")
-                cursor = self.textCursor()
-                cursor.movePosition(QTextCursor.StartOfLine)
-                cursor.setPosition(cursor.position() - 1)
-                self.setTextCursor(cursor)
-            elif self._t[pos - 1:pos + 1] == "{}":
-                cursor.movePosition(QTextCursor.EndOfLine)
-                cursor.deletePreviousChar()
-                self.setTextCursor(cursor)
-                self.insertPlainText("\n" + " " * indent + "    \n" + " " * indent + "}")
-                cursor = self.textCursor()
-                cursor.movePosition(QTextCursor.StartOfLine)
-                cursor.setPosition(cursor.position() - 1)
-                self.setTextCursor(cursor)
-            elif self._t[pos - 1:pos + 1] == "()":
-                cursor.movePosition(QTextCursor.EndOfLine)
-                cursor.deletePreviousChar()
-                self.setTextCursor(cursor)
-                self.insertPlainText("\n" + " " * indent + "    \n" + " " * indent + ")")
-                cursor = self.textCursor()
-                cursor.movePosition(QTextCursor.StartOfLine)
-                cursor.setPosition(cursor.position() - 1)
-                self.setTextCursor(cursor)
-            elif self._t[pos - 1:pos + 1] == "[]":
-                cursor.movePosition(QTextCursor.EndOfLine)
-                cursor.deletePreviousChar()
-                self.setTextCursor(cursor)
-                self.insertPlainText("\n" + " " * indent + "    \n" + " " * indent + "]")
-                cursor = self.textCursor()
-                cursor.movePosition(QTextCursor.StartOfLine)
-                cursor.setPosition(cursor.position() - 1)
-                self.setTextCursor(cursor)
-            elif self._t[pos - 1] == ":":
-                self.insertPlainText("\n" + " " * indent + "    ")
-            else:
-                super().keyPressEvent(event)
-                self.insertPlainText(" " * indent)
-        else:
+                if event.key() == Qt.Key_Return:
+                    cursor=self.textCursor()
+                    pos=cursor.position()
+                    cursor.movePosition(QTextCursor.StartOfLine)
+                    line=cursor.block().text()
+                    indent=len(line) - len(line.lstrip())
+                    super().keyPressEvent(event)
+                    self.insertPlainText(" " * indent)
+                else:
+                    super().keyPressEvent(event)
+        except IndexError:
             super().keyPressEvent(event)
+        finally:
+            pass
+            #self.numberview.update()
 
 class NullSyntaxHighlighter(QSyntaxHighlighter):
     def __init__(self,parent:QTextDocument|QTextDocument=None):
@@ -155,12 +197,12 @@ class PythonSyntaxHighlighter(QSyntaxHighlighter):
         self.highlightingRules=[]
         if isDarkTheme():
             self.highlightGreenColor = Qt.green
-            self.highlightBlueColor = Qt.darkBlue
-            self.highlightCyanColor = Qt.darkCyan
+            self.highlightBlueColor = QColor("#6a5acd")
+            self.highlightCyanColor = Qt.cyan
         else:
             self.highlightGreenColor = Qt.darkGreen
-            self.highlightBlueColor = Qt.blue
-            self.highlightCyanColor = Qt.cyan
+            self.highlightBlueColor = Qt.darkBlue
+            self.highlightCyanColor = Qt.darkCyan
         keywordFormat=QTextCharFormat()
         keywordFormat.setForeground(self.highlightBlueColor)
         for i in kwlist:
@@ -169,20 +211,35 @@ class PythonSyntaxHighlighter(QSyntaxHighlighter):
             self.highlightingRules.append((QRegExp("\\b" + i + "\\b"), keywordFormat))
         stringFormat=QTextCharFormat()
         stringFormat.setForeground(self.highlightGreenColor)
-        self.highlightingRules.append((QRegExp("\"[^\"]*\""),stringFormat))
-        self.highlightingRules.append((QRegExp("'[^']*'"),stringFormat))
+        self.multilineStringFormat=QTextCharFormat()
+        self.multilineStringFormat.setForeground(self.highlightGreenColor)
+        self.highlightingRules.append((QRegExp("\"\"\"[^#]*\"\"\""),self.multilineStringFormat))
+        self.highlightingRules.append((QRegExp("\"[^\"\n]*\""),stringFormat))
+        self.highlightingRules.append((QRegExp("'[^'\n]*'"),stringFormat))
+        commentFormat=QTextCharFormat()
+        commentFormat.setForeground(self.highlightGreenColor)
+        commentFormat.setFontItalic(True)
+        self.highlightingRules.append((QRegExp("#[^\n]"),commentFormat))
         anotherKeywordFormat=QTextCharFormat()
         anotherKeywordFormat.setForeground(self.highlightCyanColor)
         for i in ["self"]:
             self.highlightingRules.append((QRegExp("\\b"+i+"\\b"),anotherKeywordFormat))
 
     def highlightBlock(self, text):
+        inMultiLineComment = False
         for pattern, format in self.highlightingRules:
             expression = QRegExp(pattern)
             index = expression.indexIn(text)
             while index >= 0:
                 length = expression.matchedLength()
-                self.setFormat(index, length, format)
+                if format == self.multilineStringFormat:
+                    if not inMultiLineComment:
+                        inMultiLineComment = True
+                        self.setFormat(index, length, format)
+                    else:
+                        inMultiLineComment = False
+                else:
+                    self.setFormat(index, length, format)
                 index = expression.indexIn(text, index + length)
 
 class JsonSyntaxHighlighter(QSyntaxHighlighter):
@@ -191,10 +248,10 @@ class JsonSyntaxHighlighter(QSyntaxHighlighter):
         self.highlightingRules=[]
         if isDarkTheme():
             self.highlightGreenColor = Qt.green
-            self.highlightBlueColor = Qt.darkBlue
+            self.highlightBlueColor = QColor("#6a5acd")
         else:
             self.highlightGreenColor = Qt.darkGreen
-            self.highlightBlueColor = Qt.blue
+            self.highlightBlueColor = Qt.darkBlue
         braceFormat = QTextCharFormat()
         braceFormat.setForeground(self.highlightBlueColor)
         self.highlightingRules.append((QRegExp(r"[{}[\]]"),braceFormat))
@@ -215,37 +272,46 @@ class CppSyntaxHighlighter(QSyntaxHighlighter):
     def __init__(self, parent: QTextDocument | QTextDocument = None, useclanguage: bool = False):
         super(CppSyntaxHighlighter, self).__init__(parent)
         self.highlightingRules = []
+        self.highlightRedColor=Qt.red
         if isDarkTheme():
             self.highlightGreenColor = Qt.green
-            self.highlightBlueColor = Qt.darkBlue
+            self.highlightBlueColor = QColor("#6a5acd")
         else:
             self.highlightGreenColor = Qt.darkGreen
-            self.highlightBlueColor = Qt.blue
+            self.highlightBlueColor = Qt.darkBlue
         keywordFormat = QTextCharFormat()
-        keywordFormat.setForeground(self.highlightBlueColor)
+        keywordFormat.setForeground(self.highlightRedColor)
+        typeFormat=QTextCharFormat()
+        typeFormat.setForeground(self.highlightBlueColor)
         keywords = [
-            "alignas", "alignof", "constexpr", "char16_t", "char32_t",
-            "decltype", "nullptr", "noexcept", "static_assert", "auto",
+            "alignas", "alignof", "decltype", "nullptr", "noexcept", "static_assert",
             "asm", "const_cast", "dynamic_cast", "reinterpret_cast", "static_cast",
-            "asm-definition", "bool", "break", "case", "catch", "char", "const",
-            "struct", "delete", "do", "double", "float", "long", "int", "short",
-            "signed", "unsigned", "wchar_t", "if", "enum", "explicit", "export",
-            "extern", "friend", "inline", "mutable", "namespace", "operator",
-            "private", "register", "return", "static", "template", "this",
-            "typedef", "virtual", "typeid", "typename", "using", "void", "and",
-            "and_eq", "bitand", "bitor", "catch", "class", "compl", "const_cost",
-            "decltype", "new", "throw", "try", "xor", "xor_eq", "true", "false",
-            "or_eq", "or", "not", "not_eq", "public", "protected", "thread_local",
+            "asm-definition", "break", "case", "catch","delete", "do",
+            "if", "enum", "explicit", "export","extern", "friend", "inline",
+            "mutable", "operator",
+            "register", "return", "static", "template", "this",
+            "typedef", "virtual", "typeid", "typename", "using", "and",
+            "and_eq", "bitand", "bitor", "catch", "compl",
+            "decltype", "throw", "try", "xor", "xor_eq", "true", "false",
+            "or_eq", "or", "not", "not_eq", "thread_local",
             "sizeof", "for", "while", "else"
         ]
+        typeskeyword=[
+            "constexpr", "char16_t", "char32_t","auto","void","new","wchar_t",
+            "const_cost","bool","int","double","float","short","long","char",
+            "const","class","signed","unsigned","private","public","protected",
+            "namespace","struct"
+        ]
         cppkeywords = [
-            "alignas", "alignof", "and", "and_eq", "asm", "bitand", "bitor", "bool",
-            "catch", "char16_t", "char32_t", "class", "compl", "const_cost", "constexpr",
+            "alignas", "alignof", "and", "and_eq", "asm", "bitand", "bitor","catch", "compl",
             "decltype", "delete", "dynamic_cast", "explicit", "false", "friend", "inline",
-            "mutable", "namespace", "new", "noexcept", "not", "not_eq", "nullptr", "operator",
-            "or_eq", "private", "protected", "public", "reinterpret_cast", "static_cast",
-            "static_assert", "template", "this", "thread_local", "throw", "true", "try",
-            "typeid", "typename", "using", "virtual", "wchar_t", "xor", "xor_eq"
+            "mutable", "noexcept", "not", "not_eq", "nullptr", "operator",
+            "or_eq", "reinterpret_cast", "static_cast","static_assert", "template", "this",
+            "thread_local", "throw", "true", "try","typeid", "typename", "using", "virtual", "xor", "xor_eq"
+        ]
+        cpptypeskeyword=[
+            "char16_t","char32_t","const_cost","constexpr","bool","wchar_t","new","class",
+            "private","protected","public","private","protected","struct","namespace"
         ]
         hashkeywords = [
             "#include", "#define", "#ifndef", "#endif", "#if", "#elif", "#error",
@@ -255,6 +321,10 @@ class CppSyntaxHighlighter(QSyntaxHighlighter):
             if useclanguage and keyword in cppkeywords:
                 continue
             self.highlightingRules.append((QRegExp("\\b" + keyword + "\\b"), keywordFormat))
+        for keyword in typeskeyword:
+            if useclanguage and keyword in cpptypeskeyword:
+                continue
+            self.highlightingRules.append((QRegExp("\\b"+keyword+"\\b"),typeFormat))
         singleQuoteFormat = QTextCharFormat()
         singleQuoteFormat.setForeground(self.highlightBlueColor)
         self.highlightingRules.append((QRegExp("'[^']*'"), singleQuoteFormat))
@@ -317,13 +387,15 @@ class FluentCApp(FluentWindow):
         self.filemenu = RoundMenu()
         self.filemenu_a1 = QAction(QIcon(FluentIcon.DOCUMENT.path()), "新建")
         self.filemenu_a1.triggered.connect(self.newFile)
-        self.filemenu_a2 = QAction(QIcon(FluentIcon.ADD.path()), "打开")
-        self.filemenu_a2.triggered.connect(self.open)
-        self.filemenu_a3 = QAction(QIcon(FluentIcon.SAVE_AS.path()), "另存为")
-        self.filemenu_a3.triggered.connect(self.anotherSave)
-        self.filemenu_a4 = QAction("退出")
-        self.filemenu_a4.triggered.connect(self.close)
-        self.filemenu.addActions([self.filemenu_a1, self.filemenu_a2, self.filemenu_a3, self.filemenu_a4])
+        self.filemenu_a2=QAction(QIcon(FluentIcon.ARROW_DOWN.path()),"示例")
+        self.filemenu_a2.triggered.connect(self.example)
+        self.filemenu_a3 = QAction(QIcon(FluentIcon.ADD.path()), "打开")
+        self.filemenu_a3.triggered.connect(self.open)
+        self.filemenu_a4 = QAction(QIcon(FluentIcon.SAVE_AS.path()), "另存为")
+        self.filemenu_a4.triggered.connect(self.anotherSave)
+        self.filemenu_a5 = QAction("退出")
+        self.filemenu_a5.triggered.connect(self.close)
+        self.filemenu.addActions([self.filemenu_a1, self.filemenu_a2, self.filemenu_a3, self.filemenu_a4,self.filemenu_a5])
         self.filemenu_btn.setGeometry(0, 0, 100, 30)
         self.filemenu_btn.setMenu(self.filemenu)
         self.editmenu_btn = TransparentDropDownPushButton("编辑", self.editor)
@@ -348,12 +420,16 @@ class FluentCApp(FluentWindow):
         self.runmenu_btn.setMenu(self.runmenu)
         self.editorText.setFont(QFont(sets.get("family"), sets.get("fontsize")))
         self.usedsyntax = CppSyntaxHighlighter(self.editorText.document())
-        self.logText = TextEdit(self.editor)
+        self.logWidget=QStackedWidget(self.editor)
+        self.logText = PlainTextEdit()
         self.logText.setReadOnly(True)
-        self.errorView = TreeWidget(self.editor)
-        self.errorView.setHeaderLabels(["错误"])
-        self.errorView.setContextMenuPolicy(Qt.CustomContextMenu)
-        self.errorView.customContextMenuRequested.connect(self.showMenu)
+        self.logTreeWidget=TreeWidget()
+        self.logTreeWidget.setHeaderLabels(["类别","行","列","消息"])
+        self.logTreeWidget.setContextMenuPolicy(Qt.CustomContextMenu)
+        self.logTreeWidget.customContextMenuRequested.connect(self.showMessage)
+        self.logWidget.addWidget(self.logText)
+        self.logWidget.addWidget(self.logTreeWidget)
+        self.logWidget.setCurrentWidget(self.logText)
         self.settings = QWidget()
         self.settings.setObjectName("FluentCApp.SettingDialog")
         self.settingswidget = QStackedWidget(self.settings)
@@ -395,50 +471,46 @@ class FluentCApp(FluentWindow):
         self.ccompiletext.setPlainText(sets.get("cextracompilecmd"))
         self.ccompiletext.textChanged.connect(
             lambda: sets.write("cextracompilecmd", self.ccompiletext.toPlainText()))
-        self.about=QWidget()
-        self.aboutthis=LargeTitleLabel(self.about)
-        self.aboutthis.setText("关于Fluent C++")
-        self.aboutthis.setGeometry(0,0,700,150)
-        self.aboutavatar=AvatarWidget(self.about)
-        self.aboutavatar.setImage(QPixmap("resources/author.bmp"))
-        self.aboutavatar.setRadius(64)
-        self.aboutavatar.move(0,150)
-        self.aboutauthorname=TitleLabel(self.about)
-        self.aboutauthorname.setGeometry(130,150,700,self.aboutavatar.height())
-        self.aboutauthorname.setText("作者：是真的Win12Home")
-        self.abouttext=TextEdit(self.about)
-        self.abouttext.setHtml(
-            f"Fluent C++ {version}<br>By:是真的Win12Home<br>许可协议：<a target=\"_blank\" href=\"https://opensource.org/license/MIT\">MIT License</a><br>此软件永久在Github开放源码！<br>GitHub网址：<a href=\"https://github.com/Win12Home/FluentC\" target=\"_blank\">https://github.com/Win12Home/FluentC</a>"
-        )
         self.settingspivot = Pivot(self.settings)
         self.settingswidget.addWidget(self.setting1)
         self.settingswidget.addWidget(self.setting2)
-        self.settingswidget.addWidget(self.about)
         self.settingspivot.addItem("FluentCApp.SettingDialog.Set1", "常用设置",
                                    lambda: self.settingswidget.setCurrentWidget(self.setting1))
         self.settingspivot.addItem("FluentCApp.SettingDialog.Set2", "编译设置",
                                    lambda: self.settingswidget.setCurrentWidget(self.setting2))
-        self.settingspivot.addItem("FluentCApp.SettingDialog.About", "关于",
-                                   lambda: self.settingswidget.setCurrentWidget(self.about))
         self.settingspivot.setCurrentItem("FluentCApp.SettingDialog.Set1")
         self.addSubInterface(self.editor, FluentIcon.EDIT.path(), "编辑", parent=self, selected=True)
         self.addSubInterface(self.settings, FluentIcon.SETTING.path(), "设置", position=NavigationItemPosition.BOTTOM,
                              parent=self)
         self.initializeFont()
         self.resize(1280,768)
-        self.showMaximized()
         self.splashscreen = LoadingSplashScreen(self.windowIcon(), self)
         self.splashscreen.setIconSize(QSize(142,142))
         self.splashscreen.setCursor(Qt.BusyCursor)
+        self.splashscreen.show()
         self.show()
         self.createSubInterface()
         self.splashscreen.finish()
 
+    def example(self):
+        self.msg=DocumentsBox(self)
+        if self.msg.exec_():
+            self.selitem=self.msg.getListBoxSelectedItem()
+            self.msg=MessageBox("提醒","你确定要覆盖文件吗？\n此文件未保存，如果继续，那会丢失数据！\n如果继续，请按\"覆盖\"键",self)
+            self.msg.yesButton.setText("覆盖")
+            self.msg.cancelButton.setText("取消")
+            if self.msg.exec_():
+                self.filename=None
+                self.changeTitle()
+                self.editorText.setUsingAutoComplete(True)
+                self.usedsyntax=CppSyntaxHighlighter(self.editorText.document())
+                self.editorText.setPlainText(self.selitem)
+
     def createSubInterface(self):
         self.loop = QEventLoop(self)
-        self.a = randint(2500, 4500)
-        QTimer.singleShot(self.a, self.loop.quit)
+        self.a = randint(4500,15000)
         print(self.a)
+        QTimer.singleShot(self.a, self.loop.quit)
         self.loop.exec()
 
     def setCppCompiler(self):
@@ -453,26 +525,9 @@ class FluentCApp(FluentWindow):
             sets.write("c_compiler", str(self.browse).replace("/", "\\"))
             self.card_5a.text.setText(str(self.browse).replace("/", "\\"))
 
-    def showMenu(self, pos):
-        self._treeitem = self.errorView.itemAt(pos)
-        if self._treeitem:
-            self.errorViewMenu = RoundMenu(self)
-            self.errorViewMenu.action1 = QAction(QIcon(FluentIcon.COPY.path()), "复制消息", self)
-            self.errorViewMenu.action1.triggered.connect(lambda: copy(self._treeitem.text(0)))
-            self.errorViewMenu.addAction(self.errorViewMenu.action1)
-            self.errorViewMenu.exec_(self.errorView.mapToGlobal(pos))
-
     def checkAndSave(self):
+        self.changeTitle()
         self.autoSave()
-        self.errorView.clear()
-        """if self.filename and get_file_extension(self.filename) == "c":
-            self.thread = check_cpp_language_error(self.editorText.toPlainText(),True,parent=self)
-        else:
-            self.thread=check_cpp_language_error(self.editorText.toPlainText(),parent=self)
-        self.thread.start()
-        self.thread.returnCheck.connect(self.check)"""
-        self._view = QTreeWidgetItem(self.errorView)
-        self._view.setText(0, "这块没做完")
 
     def check(self, items):
         if self.filename:
@@ -504,16 +559,17 @@ class FluentCApp(FluentWindow):
         else:
             sets.write("fontsize", fontsize)
         self.editorText.setFont(QFont(sets.get("family"), sets.get("fontsize")))
+        self.repaint()
 
     def dllCopy(self):
         self.msg = MessageBox("提醒", "运行补齐程序可能会报毒，需要继续吗？", self)
         self.msg.yesButton.setText("继续")
         self.msg.cancelButton.setText("算了")
         if self.msg.exec_():
-            self.logText.setText("正在补齐...")
+            self.logText.setPlainText("正在补齐...")
             self.threads = DLLCopy(self)
             self.threads.start()
-            self.threads.log.connect(lambda item: self.logText.setText(self.logText.toPlainText() + "\n" + item))
+            self.threads.log.connect(lambda item: self.logText.setPlainText(self.logText.toPlainText() + "\n" + item))
 
     def close(self):
         if not self.filename and not self.editorText.toPlainText() == "" and not sets.get("discordsaveinfo"):
@@ -529,6 +585,7 @@ class FluentCApp(FluentWindow):
 
     def newFile(self):
         self.filename = None
+        self.usedsyntax=CppSyntaxHighlighter(self.editorText.document())
         self.editorText.setPlainText("")
         self.changeTitle()
 
@@ -537,7 +594,34 @@ class FluentCApp(FluentWindow):
             with open(self.filename, "w", encoding="utf-8") as f:
                 f.write(self.editorText.toPlainText())
 
+    def showMessage(self,pos):
+        self._item=self.logTreeWidget.itemAt(pos)
+        if self._item:
+            self.popMenu=RoundMenu(parent=self)
+            self.action1=Action(FluentIcon.COPY,"复制")
+            self.action1.triggered.connect(lambda:self.copy(self._item))
+            self.action2=Action(FluentIcon.COPY,"复制消息")
+            self.action2.triggered.connect(lambda:copy(self._item.text(3)))
+            self.action3=Action("切换到日志")
+            self.action3.triggered.connect(lambda:self.logWidget.setCurrentWidget(self.logText))
+            self.popMenu.addActions([self.action1,self.action2,self.action3])
+            self.popMenu.exec_(QCursor.pos())
+
+    def copy(self,item):
+        self.word=""
+        self.dict = {}
+        if item.text(0) == "错误":
+            self.dict["type"] = "error"
+        else:
+            self.dict["type"] = "warning"
+        self.dict["col_row"]=item.text(1)+":"+item.text(2)
+        self.dict["info"]=item.text(3)
+        self.word=dumps(self.dict)
+        copy(self.word)
+
     def run(self):
+        self.logWidget.setCurrentWidget(self.logText)
+        self.logTreeWidget.clear()
         if self.filename and get_file_extension(self.filename).lower() == "c":
             self.compile = "c_compiler"
         else:
@@ -547,6 +631,7 @@ class FluentCApp(FluentWindow):
                 self.browse, _ = QFileDialog.getSaveFileName(self, "另存为",
                                                              filter="C++文件 (*.cpp *.h *.hpp);;C语言文件 (*.c);;源文件 (*.cpp *.c);;头文件 (*.h *.hpp);;支持C/C++文件 (*.cpp *.c *.h *.hpp);;JSON文件 (*.json);;Python文件 (*.py *.pyi);;所有文件 (*.*)")
                 if self.browse:
+                    self.editorText.setUsingAutoComplete(True)
                     self.filename = str(self.browse).replace("/", "\\")
                     if get_file_extension(self.browse).lower() in ["cpp", "h", "hpp"]:
                         self.usedsyntax = CppSyntaxHighlighter(self.editorText.document())
@@ -557,12 +642,13 @@ class FluentCApp(FluentWindow):
                     elif get_file_extension(self.browse).lower() in ["py","pyi"]:
                         self.usedsyntax=PythonSyntaxHighlighter(self.editorText.document())
                     else:
+                        self.editorText.setUsingAutoComplete(False)
                         self.usedsyntax=NullSyntaxHighlighter(self.editorText.document())
                     self.changeTitle()
                     self.autoSave()
             if self.filename:
                 if get_file_extension(self.filename).lower() in ["c","cpp","h","hpp"]:
-                    self.logText.setText("编译开始")
+                    self.logText.setPlainText("编译开始")
                     if get_file_extension(self.browse).lower() == "c":
                         self.mode = "cextracompilecmd"
                         self.compile = "c_compiler"
@@ -574,6 +660,7 @@ class FluentCApp(FluentWindow):
                     print(self.threads.getGenerateCode())
                     self.threads.start()
                     self.threads.gcclog.connect(self.logConnect)
+                    self.threads.errorsignal.connect(self.errSignalRun)
                 else:
                     self.msg=MessageBox("错误","此文件不可运行！",self)
                     self.msg.yesButton.setText("确定")
@@ -586,8 +673,26 @@ class FluentCApp(FluentWindow):
             self.msg.buttonLayout.insertStretch(1)
             self.msg.exec()
 
+    def errSignalRun(self,l1:list[str],l2:list[str]):
+        for i in l1:
+            self._item=QTreeWidgetItem(self.logTreeWidget)
+            self._item.setText(0,"错误")
+            self._item.setText(1,i[1])
+            self._item.setText(2,i[2])
+            self._item.setText(3,i[0])
+            self._item.setIcon(0, QIcon(InfoBarIcon.ERROR.path()))
+        for i in l2:
+            self._item=QTreeWidgetItem(self.logTreeWidget)
+            self._item.setText(0,"警告")
+            self._item.setText(1,i[1])
+            self._item.setText(2,i[2])
+            self._item.setText(3,i[0])
+            self._item.setIcon(0,QIcon(InfoBarIcon.WARNING.path()))
+        if l1 or l2:
+            self.logWidget.setCurrentWidget(self.logTreeWidget)
+
     def logConnect(self, item: str):
-        self.logText.setText(self.logText.toPlainText() + "\n" + item)
+        self.logText.setPlainText(self.logText.toPlainText() + "\n" + item)
         if item == "编译可能错误！":
             self.msg = MessageBox("编译错误", "编译可能错误，需要启动上一次编译的程序吗？", self)
             self.msg.yesButton.setText("继续")
@@ -617,6 +722,7 @@ class FluentCApp(FluentWindow):
         self.browse, _ = QFileDialog.getSaveFileName(self, "另存为",
                                                      filter="C++文件 (*.cpp *.h *.hpp);;C语言文件 (*.c);;源文件 (*.cpp *.c);;头文件 (*.h *.hpp);;支持C/C++文件 (*.cpp *.c *.h *.hpp);;JSON文件 (*.json);;Python文件 (*.py *.pyi);;所有文件 (*.*)")
         if self.browse:
+            self.editorText.setUsingAutoComplete(True)
             self.filename = str(self.browse).replace("/", "\\")
             if get_file_extension(self.browse).lower() in ["cpp", "h", "hpp"]:
                 self.usedsyntax = CppSyntaxHighlighter(self.editorText.document())
@@ -627,6 +733,7 @@ class FluentCApp(FluentWindow):
             elif get_file_extension(self.browse).lower() in ["py", "pyi"]:
                 self.usedsyntax = PythonSyntaxHighlighter(self.editorText.document())
             else:
+                self.editorText.setUsingAutoComplete(False)
                 self.usedsyntax=NullSyntaxHighlighter(self.editorText.document())
             self.changeTitle()
             self.autoSave()
@@ -663,11 +770,9 @@ class FluentCApp(FluentWindow):
     def resizeEvent(self, e) -> None:
         self.titleBar.move(46, 0)
         self.titleBar.resize(self.width() - 46, self.titleBar.height())
-        self.editorText.setGeometry(QRect(QPoint(0, 30), QPoint(self.width() - 50 - 300, self.height() // 2 + 130)))
-        self.logText.setGeometry(
-            QRect(QPoint(0, self.height() // 2 + 130), QPoint(self.width() - 50 - 300, self.height() - 50)))
-        self.errorView.setGeometry(
-            QRect(QPoint(self.width() - 50 - 300, 30), QPoint(self.width() - 50, self.height() - 50)))
+        self.editorText.setGeometry(QRect(QPoint(0, 30), QPoint(self.width() - 50, self.height() // 2 + 130)))
+        self.logWidget.setGeometry(
+            QRect(QPoint(0, self.height() // 2 + 130), QPoint(self.width() - 50, self.height() - 50)))
         self.settingspivot.setGeometry(QRect(QPoint(0, 0), QPoint(self.width() - 50, 50)))
         self.settingswidget.setGeometry(QRect(QPoint(0, 50), QPoint(self.width() - 50, self.height() - 50)))
         self.card_1a.combobox.setGeometry(QRect(QPoint(300, 20), QPoint(self.width() - 100, 50)))
@@ -678,11 +783,11 @@ class FluentCApp(FluentWindow):
         self.cppcompiletext.setGeometry(QRect(QPoint(0, 50), QPoint(self.width() - 50, (self.height() - 100) // 2)))
         self.ccompile.setGeometry(0, (self.height() - 100) // 2, 700, 50)
         self.ccompiletext.setGeometry(0, (self.height() - 100) // 2 + 50, self.width() - 50, self.height() - 50)
-        self.abouttext.setGeometry(QRect(QPoint(0,self.aboutavatar.y()+self.aboutavatar.height()),QPoint(self.width()-50,self.height()-50)))
 
 
 if __name__ == "__main__":
     translator = FluentTranslator(QLocale(QLocale.Chinese, QLocale.SimplifiedChineseScript, QLocale.China))
     app.installTranslator(translator)
     appfluent = FluentCApp()
+    appfluent.show()
     sys.exit(app.exec_())
